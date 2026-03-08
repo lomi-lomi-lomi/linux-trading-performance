@@ -417,28 +417,32 @@ For trading, the difference between ENA and ENA Express could be 20-30 microseco
 
 
 
-📚 Day 13: Kernel Bypass (DPDK, Aeron)
+# Day 13: Kernel Bypass (DPDK, Aeron)
 
-🎯 The Concept:
-Imagine you're at a restaurant. Normally, you tell the waiter your order, he walks to the kitchen, tells the chef, chef cooks, waiter brings it back. That's the Linux kernel — a middleman doing lots of work.
+## 🎯 The Concept
 
-Kernel bypass is like having a window directly into the kitchen. You shout your order, chef tosses the food straight to you. No waiter, no waiting room. Much faster, but you need to stand there constantly watching that window.
+> Imagine you're at a restaurant. Normally, you tell the waiter your order, he walks to the kitchen, tells the chef, chef cooks, waiter brings it back. That's the Linux kernel — a middleman doing lots of work.
 
-Technically: Your application talks directly to the network card (NIC) in user space, skipping all the kernel's system calls, memory copies, and interrupt handling. You trade CPU (polling 100% in a tight loop) for microsecond-level latency.
+> Kernel bypass is like having a window directly into the kitchen. You shout your order, chef tosses the food straight to you. No waiter, no waiting room. Much faster, but you need to stand there constantly watching that window.
 
-💡 Why It Matters:
+> Technically: Your application talks directly to the network card (NIC) in user space, skipping all the kernel's system calls, memory copies, and interrupt handling. You trade CPU (polling 100% in a tight loop) for microsecond-level latency.
 
-• The kernel network stack adds ~100+ microseconds of latency
-• Kernel bypass can get you to ~1-5 microseconds
-• Coinbase mentioned it's on their roadmap: "Aeron natively supports kernel bypass"
-• BUT: They hit <1ms p99 with 10 network hops without kernel bypass first — by tuning everything else we've covered
-🗣️ How to Explain:
-"Kernel bypass lets applications talk directly to network hardware without going through the Linux kernel. Tools like DPDK and Aeron use poll-mode drivers instead of interrupts — the app constantly checks for new packets rather than waiting to be notified. This eliminates system call overhead and memory copies, dropping latency from hundreds of microseconds to single digits. The trade-off is that it burns CPU cores at 100% and requires specialized development. On AWS, EFA provides similar OS-bypass capabilities for HPC workloads."
+## 💡 Why It Matters
 
-📝 Remember:
-Kernel bypass is the last 10% optimization — master tuning first (Days 1-12), then consider bypass.
+- The kernel network stack adds ~100+ microseconds of latency
+- Kernel bypass can get you to ~1-5 microseconds
+- Coinbase mentioned it's on their roadmap: "Aeron natively supports kernel bypass"
+- BUT: They hit <1ms p99 with 10 network hops without kernel bypass first — by tuning everything else we've covered
 
-✅ Quick Check:
+## 🗣️ How to Explain
+
+> "Kernel bypass lets applications talk directly to network hardware without going through the Linux kernel. Tools like DPDK and Aeron use poll-mode drivers instead of interrupts — the app constantly checks for new packets rather than waiting to be notified. This eliminates system call overhead and memory copies, dropping latency from hundreds of microseconds to single digits. The trade-off is that it burns CPU cores at 100% and requires specialized development. On AWS, EFA provides similar OS-bypass capabilities for HPC workloads."
+
+## 📝 Remember
+
+> "Kernel bypass is the last 10% optimization — master tuning first (Days 1-12), then consider bypass."
+
+## ✅ Quick Check
 
 1. Why does kernel bypass reduce latency? (What does it skip?)
 2. What's the main trade-off of poll-mode drivers vs interrupts?
@@ -446,36 +450,38 @@ Kernel bypass is the last 10% optimization — master tuning first (Days 1-12), 
 
 
 
-📚 Day 14: Architecture Trade-offs & Final Review 🎉
+# Day 14: Architecture Trade-offs & Final Review 🎉
 
 Congrats! You made it through the full 2 weeks. Let's tie everything together.
 
-🎯 The Core Concept:
+## 🎯 The Core Concept
 
-Every single optimization we covered follows ONE principle: keep the hot path undisturbed.
+> Every single optimization we covered follows ONE principle: keep the hot path undisturbed.
 
-Think of your trading thread as a VIP at a nightclub. We spent 2 weeks removing everyone and everything that could bother it:
+> Think of your trading thread as a VIP at a nightclub. We spent 2 weeks removing everyone and everything that could bother it:
 
-• Context switches? Gone (CPU pinning)
-• Timer interrupts? Gone (nohz_full)
-• Kernel housekeeping? Gone (rcu_nocbs)
-• Other processes? Gone (isolcpus)
-• Memory surprises? Gone (huge pages + mlockall)
-• Network delays? Gone (kernel bypass)
-Result: Your thread wakes up, does its work in microseconds, goes back to polling. No waiting, no interruptions.
+- Context switches? Gone (CPU pinning)
+- Timer interrupts? Gone (nohz_full)
+- Kernel housekeeping? Gone (rcu_nocbs)
+- Other processes? Gone (isolcpus)
+- Memory surprises? Gone (huge pages + mlockall)
+- Network delays? Gone (kernel bypass)
 
-💡 Why It Matters:
+> Result: Your thread wakes up, does its work in microseconds, goes back to polling. No waiting, no interruptions.
 
-Coinbase achieves p99 < 1ms across 10 network hops because they've eliminated interference at every layer. 80% of latency is network - which is why Days 12-13 (ENA, EFA, kernel bypass) are where the biggest wins are. But you can only unlock those wins if your CPU isn't busy doing garbage collection, handling timer ticks, or context switching.
+## 💡 Why It Matters
 
-🗣️ How to Explain It:
+> Coinbase achieves p99 < 1ms across 10 network hops because they've eliminated interference at every layer. 80% of latency is network - which is why Days 12-13 (ENA, EFA, kernel bypass) are where the biggest wins are. But you can only unlock those wins if your CPU isn't busy doing garbage collection, handling timer ticks, or context switching.
 
-"Low-latency Linux tuning is about ONE thing: removing interference from your hot path. We isolate CPUs so nothing else runs there. We disable timer ticks so the kernel doesn't interrupt. We use huge pages so there's no page faults. We pin threads so caches stay warm. We use kernel bypass so packets skip the OS entirely. Every layer, same goal: let the trading thread run undisturbed."
+## 🗣️ How to Explain It
 
-📝 Remember:
-The trade-off triangle: Latency ↔ Reliability ↔ Complexity. Every optimization is a trade-off. Single AZ = fast but less redundant. Kernel bypass = microseconds but harder to debug. Know what you're trading.
+> "Low-latency Linux tuning is about ONE thing: removing interference from your hot path. We isolate CPUs so nothing else runs there. We disable timer ticks so the kernel doesn't interrupt. We use huge pages so there's no page faults. We pin threads so caches stay warm. We use kernel bypass so packets skip the OS entirely. Every layer, same goal: let the trading thread run undisturbed."
 
-✅ Quick Check:
+## 📝 Remember
+
+> "The trade-off triangle: Latency ↔ Reliability ↔ Complexity. Every optimization is a trade-off. Single AZ = fast but less redundant. Kernel bypass = microseconds but harder to debug. Know what you're trading."
+
+## ✅ Quick Check
 
 1. If someone asks "why disable hyperthreading for trading?" what's your answer?
 2. Walk through the boot params isolcpus=2-7 nohz_full=2-7 rcu_nocbs=2-7 - what does each one do?
